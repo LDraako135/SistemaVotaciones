@@ -1,0 +1,53 @@
+# Integrantes:
+Johan Andrei Lopez 
+Julian David Sanchez
+
+# Crea el proyecto con TypeScript (abrir en una carpeta para que se guarde ahi mismo)
+npx create-expo-app sistemaVotacionesReact -t expo-template-blank-typescript
+
+# abrir el proyecto en la terminal VSCode
+cd sistemaVotacionesReact
+code . (para aabir en visual estudio la carpeta)
+
+# Ejecutar el proyecto
+
+npx expo start
+
+# para permitir la ejecución en web
+npx expo install react-native-web react-dom react-native-screens react-native-safe-area-context
+
+# Configurar la navegación (React Navigation)
+npx expo install @react-navigation/native
+npx expo install react-native-screens react-native-safe-area-context
+npx expo install @react-navigation/native-stack
+
+# Bottom Tab Navigation CON EXPO Y TYPESCRIPT (menú inferior con pestañas o componente Header)
+npx expo install @react-navigation/native @react-navigation/bottom-tabs
+npx expo install react-native-screens react-native-safe-area-context
+
+# Para persistencia AsyncStorage
+
+instalar AsyncStorage
+npx expo install @react-native-async-storage/async-storage
+
+# para otros elementos (lista select)
+npm install @react-native-picker/picker
+npx expo install @react-native-community/datetimepicker
+
+# para instalar librería para exportar el registro de elecciones
+npx expo install expo-file-system expo-sharing
+npx expo install expo-media-library
+
+# Instalar el SDK de Supabase en el proyecto
+npm install @supabase/supabase-js@1.35.6
+npx expo install expo-crypto
+npm install @supabase/supabase-js bcrypt
+npm install -D ts-node typescript
+
+# si se usa la última versión se tienen que actualizar los scripts
+npm install @supabase/supabase-js@latest
+
+# Si se quiere crear otro usuario cambiar los datos, esto solo funciona desde consola para los admins 
+node scripts/crearAdmin.js
+
+# para abrir la aplicacion con qr decargar expo go en play store
