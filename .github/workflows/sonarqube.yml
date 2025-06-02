@@ -1,0 +1,16 @@
+# .github/workflows/sonarqube.yml
+name: SonarQube Manual Scan
+
+on:
+  workflow_dispatch:  # ejecutable a mano desde GitHub
+
+jobs:
+  sonarqube:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v1.1.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: http://localhost:9000
