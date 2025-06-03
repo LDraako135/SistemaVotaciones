@@ -18,6 +18,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Picker } from '@react-native-picker/picker';
 import { FontAwesome } from '@expo/vector-icons';
 
+// Define the Election type to match the structure of election records
 type Election = {
   id: number;
   name: string;
@@ -30,14 +31,17 @@ type Election = {
   updated_at: string;
 };
 
+// DatePicker component for selecting dates differently on web and mobile platforms
 function DatePicker({ date, onChange }: { date: Date | null; onChange: (d: Date) => void }) {
   if (Platform.OS === 'web') {
+    // For web, use native input type="date" element
     const formattedDate = date ? date.toISOString().substring(0, 10) : '';
     return (
       <input
         type="date"
         value={formattedDate}
         onChange={(e) => {
+          // Parse the selected date and call onChange
           const newDate = e.target.value ? new Date(e.target.value) : null;
           if (newDate) onChange(newDate);
         }}
@@ -53,6 +57,7 @@ function DatePicker({ date, onChange }: { date: Date | null; onChange: (d: Date)
       />
     );
   } else {
+    // For mobile platforms, use the DateTimePicker component with a pressable button
     const [show, setShow] = useState(false);
     return (
       <>
@@ -75,7 +80,9 @@ function DatePicker({ date, onChange }: { date: Date | null; onChange: (d: Date)
   }
 }
 
+// Main screen component for managing elections
 export default function ElectionManagementScreen() {
+  // State variables for form inputs and election data
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [representationType, setRepresentationType] = useState('');
@@ -86,17 +93,20 @@ export default function ElectionManagementScreen() {
   const [elections, setElections] = useState<Election[]>([]);
   const [editingElectionId, setEditingElectionId] = useState<number | null>(null);
 
+  // Check user role from AsyncStorage on component mount to verify admin privileges
   useEffect(() => {
     const verificarRol = async () => {
       const usuario = await AsyncStorage.getItem('usuario');
       if (usuario) {
         const parsed = JSON.parse(usuario);
+        // Set adminValid to true if role is ADMIN or ADMINISTRATIVO
         setAdminValid(parsed.role === 'ADMIN' || parsed.role === 'ADMINISTRATIVO');
       }
     };
     verificarRol();
   }, []);
 
+  // Fetch elections from the database ordered by start date descending
   const fetchElections = async () => {
     const { data, error } = await supabase
       .from('elections')
@@ -104,12 +114,14 @@ export default function ElectionManagementScreen() {
       .order('start_date', { ascending: false });
 
     if (!error && data) {
+      // Update election states based on current date and data
       await updateElectionStates(data as Election[]);
     } else {
       console.error(error);
     }
   };
 
+  // Update election states to 'PENDIENTE', 'ACTIVA' or 'FINALIZADA' based on dates
   const updateElectionStates = async (electionsList: Election[]) => {
     const now = new Date();
     let updated = false;
@@ -119,6 +131,7 @@ export default function ElectionManagementScreen() {
       const end = new Date(election.end_date);
       let newState = election.state;
 
+      // Determine new state depending on current time vs start/end dates
       if (end < now && election.state !== 'FINALIZADA') {
         newState = 'FINALIZADA';
       } else if (start <= now && now <= end && election.state !== 'ACTIVA') {
@@ -127,6 +140,7 @@ export default function ElectionManagementScreen() {
         newState = 'PENDIENTE';
       }
 
+      // Update the election state in the database if it has changed
       if (newState !== election.state) {
         const { error } = await supabase
           .from('elections')
@@ -141,6 +155,7 @@ export default function ElectionManagementScreen() {
       }
     }
 
+    // If any state was updated, fetch the updated list again, otherwise set local state
     if (updated) {
       const { data, error } = await supabase
         .from('elections')
@@ -155,10 +170,12 @@ export default function ElectionManagementScreen() {
     }
   };
 
+  // When adminValid changes and is true, fetch elections from backend
   useEffect(() => {
     if (adminValid) fetchElections();
   }, [adminValid]);
 
+  // Reset the form fields and editing state
   const resetForm = () => {
     setName('');
     setDescription('');
@@ -169,15 +186,18 @@ export default function ElectionManagementScreen() {
     setEditingElectionId(null);
   };
 
+  // Handle create or update election submission
   const handleCreateElection = async () => {
+    // Validate required fields
     if (!name || !description || !representationType || !startDate || !endDate || !state) {
-      Alert.alert('⚠️ Todos los campos son obligatorios');
+      Alert.alert('⚠️ Todos los campos son obligatorios'); // All fields are required
       return;
     }
 
     const now = new Date().toISOString();
 
     if (editingElectionId) {
+      // Update existing election in database
       const { error } = await supabase
         .from('elections')
         .update({
@@ -199,6 +219,7 @@ export default function ElectionManagementScreen() {
         fetchElections();
       }
     } else {
+      // Insert new election in database
       const { error } = await supabase.from('elections').insert([
         {
           name,
@@ -222,6 +243,7 @@ export default function ElectionManagementScreen() {
     }
   };
 
+  // Confirm and handle deletion of an election
   const handleDeleteElection = async (id: number) => {
     Alert.alert(
       'Confirmar eliminación',
@@ -232,11 +254,13 @@ export default function ElectionManagementScreen() {
           text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
+            // Delete the election from the database
             const { error } = await supabase.from('elections').delete().eq('id', id);
             if (error) {
               Alert.alert('❌ Error al eliminar elección', error.message);
             } else {
               Alert.alert('✅ Elección eliminada');
+              // If the deleted election was being edited, reset form
               if (editingElectionId === id) resetForm();
               fetchElections();
             }
@@ -246,6 +270,7 @@ export default function ElectionManagementScreen() {
     );
   };
 
+  // Populate the form fields for editing the selected election
   const handleEditElection = (election: Election) => {
     setEditingElectionId(election.id);
     setName(election.name);
@@ -256,8 +281,10 @@ export default function ElectionManagementScreen() {
     setState(election.state);
   };
 
+  // If user is not admin or administrative role, show access denied message
   if (!adminValid) return <Text style={styles.block}>⛔ Acceso denegado</Text>;
 
+  // Render form and list of elections
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 20 }}>
       <Text style={styles.title}>🗳️ Gestión de Elecciones</Text>
@@ -319,15 +346,18 @@ export default function ElectionManagementScreen() {
             <Text>📌 Estado: {item.state}</Text>
 
             <View style={styles.iconButtons}>
+              {/* Button to delete election */}
               <TouchableOpacity onPress={() => handleDeleteElection(item.id)}>
                 <FontAwesome name="trash" size={24} color="red" style={styles.icon} />
               </TouchableOpacity>
+              {/* Button to edit election */}
               <TouchableOpacity onPress={() => handleEditElection(item)}>
                 <FontAwesome name="edit" size={24} color="blue" style={styles.icon} />
               </TouchableOpacity>
             </View>
           </View>
         )}
+        ListEmptyComponent={<Text>No hay elecciones creadas.</Text>}
       />
     </ScrollView>
   );
@@ -335,34 +365,34 @@ export default function ElectionManagementScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
     backgroundColor: '#fff',
   },
   block: {
-    fontSize: 22,
-    color: 'red',
+    fontSize: 20,
     textAlign: 'center',
     marginTop: 50,
+    color: 'red',
   },
   title: {
-    fontSize: 26,
-    marginBottom: 15,
     fontWeight: 'bold',
+    fontSize: 22,
+    marginBottom: 15,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 20,
-    marginTop: 30,
-    marginBottom: 15,
-    fontWeight: '600',
+    fontWeight: 'bold',
+    fontSize: 18,
+    marginTop: 25,
+    marginBottom: 10,
   },
   label: {
-    fontWeight: '600',
     marginBottom: 5,
+    fontWeight: '600',
   },
   input: {
-    borderColor: '#ccc',
+    borderColor: '#aaa',
     borderWidth: 1,
     borderRadius: 8,
     padding: 10,
@@ -372,30 +402,29 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   picker: {
-    height: 50,
-    width: '100%',
-  },
-  dateButton: {
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    marginBottom: 15,
     backgroundColor: '#f0f0f0',
+    borderRadius: 8,
   },
   electionRow: {
     borderWidth: 1,
-    borderColor: '#ddd',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 12,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+    backgroundColor: '#fafafa',
   },
   iconButtons: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 8,
   },
   icon: {
     marginLeft: 15,
+  },
+  dateButton: {
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#aaa',
+    borderRadius: 8,
+    marginBottom: 10,
   },
 });
