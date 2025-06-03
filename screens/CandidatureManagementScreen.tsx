@@ -14,6 +14,7 @@ import { Picker } from '@react-native-picker/picker';
 import { supabase } from '../lib/supabase';
 import { FontAwesome } from '@expo/vector-icons';
 
+// Type definitions
 type Candidature = {
   id: number;
   proposal: string;
@@ -36,6 +37,7 @@ type Election = {
 };
 
 export default function CandidatureManagementScreen() {
+  // State declarations
   const [candidatures, setCandidatures] = useState<Candidature[]>([]);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [elections, setElections] = useState<Election[]>([]);
@@ -46,45 +48,48 @@ export default function CandidatureManagementScreen() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
 
-   useEffect(() => {
-  fetchCandidates();
-  fetchElections();
-  fetchCandidatures();
+  // Fetch data and subscribe to changes
+  useEffect(() => {
+    fetchCandidates();
+    fetchElections();
+    fetchCandidatures();
 
-  const subscription = supabase
-    .from('candidacies')
-    .on('*', (payload) => {
-      fetchCandidatures();
-    })
-    .subscribe();
+    const subscription = supabase
+      .from('candidacies')
+      .on('*', () => {
+        fetchCandidatures();
+      })
+      .subscribe();
 
-  return () => {
-    supabase.removeSubscription(subscription); // O subscription.unsubscribe();
-  };
-}, []);
+    return () => {
+      supabase.removeSubscription(subscription);
+    };
+  }, []);
 
-
+  // Fetch all candidates with 'CANDIDATO' role
   const fetchCandidates = async () => {
     const { data, error } = await supabase
       .from('users')
       .select('id, username')
       .eq('role', 'CANDIDATO');
     if (error) {
-      Alert.alert('Error al cargar candidatos', error.message);
+      Alert.alert('Error loading candidates', error.message);
       return;
     }
     setCandidates(data || []);
   };
 
+  // Fetch all elections
   const fetchElections = async () => {
     const { data, error } = await supabase.from('elections').select('id, name');
     if (error) {
-      Alert.alert('Error al cargar elecciones', error.message);
+      Alert.alert('Error loading elections', error.message);
       return;
     }
     setElections(data || []);
   };
 
+  // Fetch all candidatures and map relational fields
   const fetchCandidatures = async () => {
     const { data, error } = await supabase
       .from('candidacies')
@@ -100,7 +105,7 @@ export default function CandidatureManagementScreen() {
       `);
 
     if (error) {
-      Alert.alert('Error al cargar candidaturas', error.message);
+      Alert.alert('Error loading candidatures', error.message);
       return;
     }
 
@@ -118,17 +123,18 @@ export default function CandidatureManagementScreen() {
     setCandidatures(mapped);
   };
 
+  // Save new candidature or update existing one
   const handleSave = async () => {
     if (!selectedCandidate) {
-      Alert.alert('⚠️ Selecciona un candidato.');
+      Alert.alert('⚠️ Select a candidate.');
       return;
     }
     if (!selectedElection) {
-      Alert.alert('⚠️ Selecciona una elección.');
+      Alert.alert('⚠️ Select an election.');
       return;
     }
     if (proposal.trim() === '') {
-      Alert.alert('⚠️ La propuesta no puede estar vacía.');
+      Alert.alert('⚠️ Proposal cannot be empty.');
       return;
     }
 
@@ -148,7 +154,7 @@ export default function CandidatureManagementScreen() {
           .eq('id', editingId);
 
         if (error) throw error;
-        Alert.alert('Candidatura actualizada');
+        Alert.alert('Candidature updated');
       } else {
         const { error } = await supabase.from('candidacies').insert([
           {
@@ -161,18 +167,19 @@ export default function CandidatureManagementScreen() {
         ]);
 
         if (error) throw error;
-        Alert.alert('Candidatura creada');
+        Alert.alert('Candidature created');
       }
 
       resetForm();
       fetchCandidatures();
     } catch (error: any) {
-      Alert.alert('Error al guardar candidatura', error.message);
+      Alert.alert('Error saving candidature', error.message);
     } finally {
       setLoading(false);
     }
   };
 
+  // Populate form fields for editing
   const handleEdit = (c: Candidature) => {
     setEditingId(c.id);
     setSelectedCandidate(c.user_id);
@@ -180,21 +187,22 @@ export default function CandidatureManagementScreen() {
     setProposal(c.proposal);
   };
 
+  // Delete a candidature with confirmation
   const handleDelete = (id: number) => {
     Alert.alert(
-      'Confirmación',
-      '¿Deseas eliminar esta candidatura?',
+      'Confirmation',
+      'Do you want to delete this candidature?',
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: 'Delete',
           style: 'destructive',
           onPress: async () => {
             const { error } = await supabase.from('candidacies').delete().eq('id', id);
             if (error) {
-              Alert.alert('Error al eliminar candidatura', error.message);
+              Alert.alert('Error deleting candidature', error.message);
             } else {
-              Alert.alert('Candidatura eliminada');
+              Alert.alert('Candidature deleted');
               fetchCandidatures();
             }
           },
@@ -204,6 +212,7 @@ export default function CandidatureManagementScreen() {
     );
   };
 
+  // Reset the form to initial state
   const resetForm = () => {
     setEditingId(null);
     setSelectedCandidate(null);
@@ -213,55 +222,60 @@ export default function CandidatureManagementScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>📝 Gestión de Candidaturas</Text>
+      <Text style={styles.title}>📝 Candidature Management</Text>
 
-      <Text style={styles.label}>Candidato:</Text>
+      {/* Candidate Picker */}
+      <Text style={styles.label}>Candidate:</Text>
       <View style={styles.pickerWrapper}>
         <Picker
           selectedValue={selectedCandidate}
           onValueChange={(val) => setSelectedCandidate(val)}
           style={styles.picker}
-          prompt="Seleccione candidato"
+          prompt="Select candidate"
         >
-          <Picker.Item label="-- Seleccione candidato --" value={null} />
+          <Picker.Item label="-- Select candidate --" value={null} />
           {candidates.map((c) => (
             <Picker.Item key={c.id} label={c.username} value={c.id} />
           ))}
         </Picker>
       </View>
 
-      <Text style={styles.label}>Elección:</Text>
+      {/* Election Picker */}
+      <Text style={styles.label}>Election:</Text>
       <View style={styles.pickerWrapper}>
         <Picker
           selectedValue={selectedElection}
           onValueChange={(val) => setSelectedElection(val)}
           style={styles.picker}
-          prompt="Seleccione elección"
+          prompt="Select election"
         >
-          <Picker.Item label="-- Seleccione elección --" value={""} />
+          <Picker.Item label="-- Select election --" value={""} />
           {elections.map((e) => (
             <Picker.Item key={e.id} label={e.name} value={e.id} />
           ))}
         </Picker>
       </View>
 
-      <Text style={styles.label}>Propuesta:</Text>
+      {/* Proposal Input */}
+      <Text style={styles.label}>Proposal:</Text>
       <TextInput
         multiline
         style={styles.textInput}
-        placeholder="Ingrese la propuesta"
+        placeholder="Enter proposal"
         value={proposal}
         onChangeText={setProposal}
       />
 
+      {/* Submit Button */}
       <Button
-        title={loading ? 'Guardando...' : editingId !== null ? 'Actualizar candidatura' : 'Crear candidatura'}
+        title={loading ? 'Saving...' : editingId !== null ? 'Update Candidature' : 'Create Candidature'}
         onPress={handleSave}
         disabled={loading}
       />
 
-      <Text style={styles.subtitle}>Listado de candidaturas:</Text>
+      <Text style={styles.subtitle}>Candidatures List:</Text>
 
+      {/* Candidatures List */}
       <FlatList
         data={candidatures}
         keyExtractor={(item) => item.id.toString()}
@@ -295,6 +309,7 @@ export default function CandidatureManagementScreen() {
               </Text>
             </View>
 
+            {/* Action Buttons */}
             <View style={styles.iconButtons}>
               <TouchableOpacity onPress={() => handleEdit(item)}>
                 <FontAwesome name="edit" size={24} color="blue" style={styles.icon} />
@@ -305,12 +320,13 @@ export default function CandidatureManagementScreen() {
             </View>
           </View>
         )}
-        ListEmptyComponent={<Text>No hay candidaturas registradas.</Text>}
+        ListEmptyComponent={<Text>No candidatures registered.</Text>}
       />
     </ScrollView>
   );
 }
 
+// Styles
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: '#fff' },
   title: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, textAlign: 'center' },
@@ -322,7 +338,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: 10,
   },
-  picker: { height: 50 ,color: 'black'},
+  picker: { height: 50, color: 'black' },
   textInput: {
     height: 80,
     borderWidth: 1,
