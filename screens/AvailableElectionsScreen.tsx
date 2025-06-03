@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
 import { useFocusEffect } from '@react-navigation/native';
 
+// Define types for elections and candidates
 type Election = {
   id: number;
   name: string;
@@ -30,6 +31,7 @@ type Candidate = {
   election_id: number;
 };
 
+// Show alert dialog depending on platform
 const showAlert = (title: string, message: string) => {
   if (Platform.OS === 'web') {
     // @ts-ignore
@@ -48,6 +50,7 @@ export default function AvailableElectionsScreen() {
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
 
+  // Retrieve user role and ID from AsyncStorage
   useEffect(() => {
     const fetchUserRole = async () => {
       const usuario = await AsyncStorage.getItem('usuario');
@@ -60,7 +63,7 @@ export default function AvailableElectionsScreen() {
     fetchUserRole();
   }, []);
 
-  // Función para obtener elecciones
+  // Fetch elections from Supabase
   const fetchAvailableElections = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -77,7 +80,7 @@ export default function AvailableElectionsScreen() {
     setLoading(false);
   };
 
-  // Se ejecuta cuando cambia el rol o al enfocar la pantalla
+  // Fetch elections when screen is focused and userRole changes
   useFocusEffect(
     useCallback(() => {
       if (userRole) {
@@ -88,14 +91,13 @@ export default function AvailableElectionsScreen() {
     }, [userRole])
   );
 
-  // Suscripción en tiempo real a cambios en la tabla elections
+  // Real-time subscription to elections table changes
   useEffect(() => {
     if (!userRole) return;
 
     const subscription = supabase
       .from('elections')
       .on('*', (payload) => {
-
         fetchAvailableElections();
       })
       .subscribe();
@@ -105,6 +107,7 @@ export default function AvailableElectionsScreen() {
     };
   }, [userRole]);
 
+  // Fetch candidates for a given election
   const fetchCandidates = async (electionId: number) => {
     setLoadingCandidates(true);
     const { data, error } = await supabase
@@ -132,6 +135,7 @@ export default function AvailableElectionsScreen() {
     setLoadingCandidates(false);
   };
 
+  // Handle election selection or deselection
   const onSelectElection = (id: number) => {
     if (selectedElectionId === id) {
       setSelectedElectionId(null);
@@ -142,6 +146,7 @@ export default function AvailableElectionsScreen() {
     }
   };
 
+  // Vote for a candidate with validation rules
   const voteForCandidate = async (candidateId: number) => {
     if (!userId || !selectedElectionId || !userRole) {
       showAlert('Error', 'No se pudo identificar el usuario, rol o la elección.');
@@ -184,6 +189,7 @@ export default function AvailableElectionsScreen() {
       }
     }
 
+    // Check if the user already voted in this election
     const { data: existingVotes, error: voteError } = await supabase
       .from('votes')
       .select('*')
@@ -200,6 +206,7 @@ export default function AvailableElectionsScreen() {
       return;
     }
 
+    // Insert vote
     const now = new Date().toISOString();
 
     const { error: insertError } = await supabase.from('votes').insert([
@@ -222,6 +229,7 @@ export default function AvailableElectionsScreen() {
     }
   };
 
+  // Show loading indicator while fetching elections
   if (loading) {
     return (
       <View style={[styles.container, styles.center]}>
@@ -231,6 +239,7 @@ export default function AvailableElectionsScreen() {
     );
   }
 
+  // Show message when there are no elections
   if (elections.length === 0) {
     return (
       <View style={[styles.container, styles.center]}>
@@ -239,6 +248,7 @@ export default function AvailableElectionsScreen() {
     );
   }
 
+  // Main UI rendering elections and candidates
   return (
     <View style={styles.container}>
       <Text style={styles.title}>🗳️ Elecciones Disponibles</Text>
@@ -286,6 +296,7 @@ export default function AvailableElectionsScreen() {
   );
 }
 
+// Style definitions
 const styles = StyleSheet.create({
   container: { padding: 20, backgroundColor: '#fff', flex: 1 },
   center: { justifyContent: 'center', alignItems: 'center' },
