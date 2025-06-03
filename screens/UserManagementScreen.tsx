@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+// Import React Native components
 import {
   View,
   Text,
@@ -11,11 +12,16 @@ import {
   Pressable,
   ScrollView,
 } from 'react-native';
+// AsyncStorage to persist data locally
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// Crypto for hashing passwords securely
 import * as Crypto from 'expo-crypto';
+// Supabase client for backend communication
 import { supabase } from '../lib/supabase';
+// Icon set from Expo
 import { FontAwesome } from '@expo/vector-icons';
 
+// Define user type with expected fields
 type Usuario = {
   id: number;
   identification: string;
@@ -23,15 +29,22 @@ type Usuario = {
   role: 'ADMIN' | 'ADMINISTRATIVO' | 'CANDIDATO' | 'VOTANTE';
 };
 
+// Main component to manage users
 export default function UserManagementScreen() {
+  // State variables for form inputs
   const [identification, setIdentification] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  // Role state with default role ADMINISTRATIVO
   const [role, setRole] = useState<Usuario['role']>('ADMINISTRATIVO');
+  // Flag to verify if current user is ADMIN
   const [adminValid, setAdminValid] = useState(false);
+  // List of users fetched from database
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  // Id of user currently being edited (null if creating)
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
 
+  // Hash password using SHA256 algorithm asynchronously
   const hashPassword = async (password: string): Promise<string> => {
     return await Crypto.digestStringAsync(
       Crypto.CryptoDigestAlgorithm.SHA256,
@@ -39,6 +52,7 @@ export default function UserManagementScreen() {
     );
   };
 
+  // On mount, verify if stored user role is ADMIN to grant access
   useEffect(() => {
     const verificarRol = async () => {
       const usuario = await AsyncStorage.getItem('usuario');
@@ -50,6 +64,7 @@ export default function UserManagementScreen() {
     verificarRol();
   }, []);
 
+  // Load users from Supabase database
   const cargarUsuarios = async () => {
     const { data, error } = await supabase
       .from('users')
@@ -61,13 +76,16 @@ export default function UserManagementScreen() {
     }
   };
 
+  // When admin is validated, fetch user list
   useEffect(() => {
     if (adminValid) {
       cargarUsuarios();
     }
   }, [adminValid]);
 
+  // Handle user creation or edition logic
   const handleCreateUser = async () => {
+    // Validate required fields; password required only for new users
     if (
       !identification ||
       !username ||
@@ -80,19 +98,21 @@ export default function UserManagementScreen() {
       return;
     }
 
-    // No permitir crear usuarios ADMIN
+    // Prevent creation of users with ADMIN role
     if (editingUserId === null && role === 'ADMIN') {
       Alert.alert('❌ No está permitido crear usuarios con rol ADMIN');
       return;
     }
 
     try {
+      // Hash password if provided
       let hashed = '';
       if (password) {
         hashed = await hashPassword(password);
       }
 
       if (editingUserId === null) {
+        // Insert new user in database
         const { error } = await supabase.from('users').insert([
           {
             identification,
@@ -107,13 +127,14 @@ export default function UserManagementScreen() {
         }
         Alert.alert('✅ Usuario creado exitosamente');
       } else {
-        // No permitir editar usuarios ADMIN
+        // Prevent editing ADMIN users
         const userToEdit = usuarios.find(u => u.id === editingUserId);
         if (userToEdit?.role === 'ADMIN') {
           Alert.alert('❌ No está permitido editar usuarios ADMIN');
           return;
         }
 
+        // Prepare update data
         const updateData: any = {
           identification,
           username,
@@ -123,6 +144,7 @@ export default function UserManagementScreen() {
           updateData.password_hash = hashed;
         }
 
+        // Update user in database
         const { error } = await supabase
           .from('users')
           .update(updateData)
@@ -135,11 +157,13 @@ export default function UserManagementScreen() {
         Alert.alert('✅ Usuario editado exitosamente');
       }
 
+      // Reset form after operation
       setIdentification('');
       setUsername('');
       setPassword('');
       setRole('ADMINISTRATIVO');
       setEditingUserId(null);
+      // Refresh user list
       cargarUsuarios();
     } catch (e) {
       Alert.alert('❌ Error general', 'No se pudo procesar');
@@ -147,6 +171,7 @@ export default function UserManagementScreen() {
     }
   };
 
+  // Populate form with user data for editing
   const handleEditUser = (user: Usuario) => {
     if (user.role === 'ADMIN') {
       Alert.alert('❌ No está permitido editar usuarios ADMIN');
@@ -159,6 +184,7 @@ export default function UserManagementScreen() {
     setRole(user.role);
   };
 
+  // Handle user deletion with confirmation
   const handleDeleteUser = async (userId: number) => {
     const userToDelete = usuarios.find(u => u.id === userId);
     if (userToDelete?.role === 'ADMIN') {
@@ -172,6 +198,7 @@ export default function UserManagementScreen() {
         text: 'Eliminar',
         style: 'destructive',
         onPress: async () => {
+          // Delete user from database
           const { error } = await supabase.from('users').delete().eq('id', userId);
           if (error) {
             Alert.alert('Error al eliminar', error.message);
@@ -184,6 +211,7 @@ export default function UserManagementScreen() {
     ]);
   };
 
+  // Render access denied message if not ADMIN
   if (!adminValid)
     return (
       <Text style={styles.block}>
@@ -191,6 +219,7 @@ export default function UserManagementScreen() {
       </Text>
     );
 
+  // Main render of user management UI
   return (
     <ScrollView
       style={styles.container}
@@ -198,6 +227,8 @@ export default function UserManagementScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <Text style={styles.title}>👤 Gestión de Usuarios</Text>
+
+      {/* Identification input */}
       <Text style={styles.label}>Identificacion:</Text>
       <TextInput
         placeholder="Identificación"
@@ -205,6 +236,8 @@ export default function UserManagementScreen() {
         value={identification}
         onChangeText={setIdentification}
       />
+
+      {/* Username input */}
       <Text style={styles.label}>Nombre de usuario:</Text>
       <TextInput
         placeholder="Nombre de usuario"
@@ -213,6 +246,8 @@ export default function UserManagementScreen() {
         onChangeText={setUsername}
         autoCapitalize="none"
       />
+
+      {/* Password input with conditional label */}
       <Text style={styles.label}>
         {editingUserId ? 'Nueva contraseña (opcional)' : 'Contraseña'}
       </Text>
@@ -224,6 +259,7 @@ export default function UserManagementScreen() {
         secureTextEntry
       />
 
+      {/* Role selection buttons */}
       <Text style={styles.label}>Rol del usuario:</Text>
       <View style={styles.pickerRow}>
         {['ADMINISTRATIVO', 'CANDIDATO', 'VOTANTE'].map(r => (
@@ -248,11 +284,13 @@ export default function UserManagementScreen() {
         ))}
       </View>
 
+      {/* Button to create or save user */}
       <Button
         title={editingUserId ? 'Guardar cambios' : 'Crear usuario'}
         onPress={handleCreateUser}
       />
 
+      {/* Button to cancel edit mode */}
       {editingUserId !== null && (
         <Button
           title="Cancelar edición"
@@ -267,6 +305,7 @@ export default function UserManagementScreen() {
         />
       )}
 
+      {/* List of registered users */}
       <Text style={styles.subtitle}>📋 Usuarios registrados:</Text>
       <FlatList
         data={usuarios}
@@ -281,6 +320,7 @@ export default function UserManagementScreen() {
                 {item.role === 'ADMIN' && ' 🔒'}
               </Text>
             </View>
+            {/* Edit and delete buttons */}
             <View style={styles.buttonsRow}>
               <TouchableOpacity
                 onPress={() => handleEditUser(item)}
@@ -304,62 +344,86 @@ export default function UserManagementScreen() {
   );
 }
 
+// Styles for components and layout
 const styles = StyleSheet.create({
-  container: { padding: 20, backgroundColor: '#fff', flex: 1 },
-  title: { fontSize: 24, textAlign: 'center', marginBottom: 20 },
-  subtitle: { fontSize: 18, marginVertical: 10, fontWeight: 'bold' },
+  container: {
+    flex: 1,
+    padding: 16,
+  },
+  block: {
+    margin: 20,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'red',
+    textAlign: 'center',
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  label: {
+    fontWeight: '600',
+    marginTop: 12,
+    marginBottom: 4,
+  },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 10,
-    backgroundColor: 'white',
-    color: 'black',
+    borderColor: '#999',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 4,
   },
-  label: { fontWeight: 'bold', marginBottom: 5 },
   pickerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
+    justifyContent: 'space-around',
+    marginVertical: 10,
   },
   roleButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
   },
   roleButtonSelected: {
-    backgroundColor: '#007bff',
+    backgroundColor: '#007AFF',
+    borderColor: '#007AFF',
   },
   roleButtonUnselected: {
-    backgroundColor: '#eee',
+    backgroundColor: 'white',
+    borderColor: '#999',
   },
   roleButtonTextSelected: {
     color: 'white',
-    fontWeight: 'bold',
-    fontSize: 14,
+    fontWeight: '700',
   },
   roleButtonTextUnselected: {
     color: '#555',
-    fontSize: 14,
+    fontWeight: '500',
+  },
+  subtitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginTop: 25,
+    marginBottom: 10,
   },
   userRow: {
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
     flexDirection: 'row',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderColor: '#ddd',
+    paddingVertical: 10,
+    paddingHorizontal: 5,
   },
-  buttonsRow: { flexDirection: 'row', gap: 10 },
-  iconButtons: {
-    flexDirection: 'row-reverse',
+  buttonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   icon: {
-    marginHorizontal: 5,
+    marginHorizontal: 6,
   },
   btnDisabled: {
-    opacity: 0.5,
+    opacity: 0.3,
   },
-  btnText: { color: 'white', fontWeight: 'bold' },
-  block: { padding: 20, textAlign: 'center', fontSize: 18, color: 'red' },
 });
