@@ -8,24 +8,36 @@ type Election = { id: number; name: string; start_date: string; end_date: string
 type CandidateResult = { id: number; name: string; votes_count: number };
 
 export default function ElectionResultsScreen() {
+  // State to store elections that are finished
   const [elections, setElections] = useState<Election[]>([]);
+  // Loading state for fetching elections
   const [loading, setLoading] = useState(true);
+  // State for currently selected election id
   const [selectedElectionId, setSelectedElectionId] = useState<number | null>(null);
+  // State for candidate results for the selected election
   const [results, setResults] = useState<CandidateResult[]>([]);
+  // Loading state for fetching results of selected election
   const [loadingResults, setLoadingResults] = useState(false);
 
+  // On component mount, fetch finished elections
   useEffect(() => {
     fetchElections();
   }, []);
 
+  // When selectedElectionId changes, fetch the results or clear if none selected
   useEffect(() => {
     if (selectedElectionId !== null) fetchResults(selectedElectionId);
     else setResults([]);
   }, [selectedElectionId]);
 
+  // Fetch elections with state FINALIZADA ordered by start date descending
   async function fetchElections() {
     setLoading(true);
-    const { data, error } = await supabase.from('elections').select('*').eq('state', 'FINALIZADA').order('start_date', { ascending: false });
+    const { data, error } = await supabase
+      .from('elections')
+      .select('*')
+      .eq('state', 'FINALIZADA')
+      .order('start_date', { ascending: false });
     if (error) {
       console.error(error.message);
       setElections([]);
@@ -33,6 +45,7 @@ export default function ElectionResultsScreen() {
     setLoading(false);
   }
 
+  // Fetch vote results for the given election, counting votes per candidate
   async function fetchResults(electionId: number) {
     setLoadingResults(true);
     const { data, error } = await supabase
@@ -51,6 +64,7 @@ export default function ElectionResultsScreen() {
       return;
     }
 
+    // Count votes grouped by candidacy_id and get candidate username
     const counts: Record<number, CandidateResult> = {};
     (data ?? []).forEach((vote) => {
       const cId = vote.candidacy_id;
@@ -60,18 +74,21 @@ export default function ElectionResultsScreen() {
       counts[cId].votes_count += 1;
     });
 
+    // Sort candidates descending by vote count and update state
     setResults(Object.values(counts).sort((a, b) => b.votes_count - a.votes_count));
     setLoadingResults(false);
   }
 
+  // Function to download the results report as CSV
   async function downloadReport() {
     if (!selectedElectionId) return;
 
+    // Create CSV content with header and data rows escaping quotes in names
     const header = 'Candidato,Votos\n';
     const csv = header + results.map(r => `"${r.name.replace(/"/g, '""')}",${r.votes_count}`).join('\n');
 
     if (Platform.OS === 'web') {
-      // Descarga en web con Blob y enlace
+      // On web, create a Blob and trigger a download link click
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -80,7 +97,7 @@ export default function ElectionResultsScreen() {
       a.click();
       window.URL.revokeObjectURL(url);
     } else {
-      // Móvil: guardado y compartir archivo
+      // On mobile, save file to local document directory and open sharing dialog
       const path = FileSystem.documentDirectory + `resultados_eleccion_${selectedElectionId}.csv`;
       await FileSystem.writeAsStringAsync(path, csv, { encoding: FileSystem.EncodingType.UTF8 });
       await Sharing.shareAsync(path);
@@ -92,8 +109,10 @@ export default function ElectionResultsScreen() {
       <Text style={styles.title}>Resultados de Elecciones Finalizadas</Text>
 
       {loading ? (
+        // Show loader while elections are loading
         <ActivityIndicator size="large" color="#0000ff" />
       ) : (
+        // List finished elections, highlight selected
         <FlatList
           data={elections}
           keyExtractor={item => item.id.toString()}
@@ -114,10 +133,13 @@ export default function ElectionResultsScreen() {
         <View style={styles.resultsSection}>
           <Text style={styles.resultsTitle}>Resultados</Text>
           {loadingResults ? (
+            // Show loader while results are loading
             <ActivityIndicator size="large" color="#0000ff" />
           ) : results.length === 0 ? (
+            // Show message if no votes found
             <Text>No hay votos registrados para esta elección.</Text>
           ) : (
+            // List candidate results with vote counts
             <FlatList
               data={results}
               keyExtractor={item => item.id.toString()}
@@ -130,6 +152,7 @@ export default function ElectionResultsScreen() {
             />
           )}
 
+          {/* Button to download CSV report */}
           <TouchableOpacity onPress={downloadReport} style={styles.downloadButton}>
             <Text style={styles.downloadButtonText}>Descargar reporte CSV</Text>
           </TouchableOpacity>
